@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>OpenManus - Autonomous AI Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 加载页面 -->
+    <div class="loading-screen">
+        <div class="loading-background"></div>
+        <div class="loading-grid"></div>
+        
+        <h1 class="loading-title">OPENMANUS</h1>
+        
+        <div class="loading-container">
+            <div class="progress-container">
+                <div class="progress-bar"></div>
+            </div>
+            <div class="progress-text">Loading: <span class="digital-glitch">0%</span></div>
+        </div>
+        
+        <div class="loading-message">Initializing system components...</div>
+        
+        <div class="glitch-effect">
+            <div class="glitch-line"></div>
+            <div class="glitch-line"></div>
+            <div class="glitch-line"></div>
+            <div class="glitch-line"></div>
+        </div>
+    </div>
+    
+    <a href="https://github.com/mannaandpoem/OpenManus" class="github-link" target="_blank" rel="noopener noreferrer">
+        <i class="fab fa-github"></i>
+    </a>
+    <div class="home-container">
+        <div class="hero-section">
+            <div class="particle-container">
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+                <div class="particle"></div>
+            </div>
+
+            <div class="tech-circuit">
+                <div class="circuit-line"></div>
+                <div class="circuit-line"></div>
+                <div class="circuit-line"></div>
+                <div class="circuit-line"></div>
+                <div class="circuit-vertical"></div>
+                <div class="circuit-vertical"></div>
+                <div class="circuit-vertical"></div>
+                <div class="circuit-vertical"></div>
+                <div class="circuit-node"></div>
+                <div class="circuit-node"></div>
+                <div class="circuit-node"></div>
+                <div class="circuit-node"></div>
+                <div class="circuit-node circuit-node-small"></div>
+                <div class="circuit-node circuit-node-small"></div>
+                <div class="circuit-node circuit-node-small"></div>
+                <div class="circuit-node circuit-node-small"></div>
+                <div class="circuit-node circuit-node-small"></div>
+                <div class="circuit-node circuit-node-small"></div>
+                <div class="circuit-diagonal"></div>
+                <div class="circuit-diagonal"></div>
+                <div class="circuit-diagonal circuit-diagonal-reverse"></div>
+                <div class="circuit-diagonal circuit-diagonal-reverse"></div>
+            </div>
+
+            <h1 class="title">OPENMANUS</h1>
+            <p class="subtitle">Your Autonomous AI Agent</p>
+            <p class="description"><span class="powered-text">Powered by</span> <span>LLMs</span> and <span>diverse tools</span>.<br>OpenManus solves tasks through <span>AI reasoning</span>.</p>
+
+            <div class="theme-selector">
+                <p class="theme-label">选择主题</p>
+                <div class="theme-options">
+                    {% for theme in themes %}
+                    <a href="/chat?theme={{ theme.id }}" class="theme-option" data-animation="{{ loop.index }}" title="{{ theme.description }}">
+                        <div class="theme-icon-container">
+                            {% if theme.id == "cyberpunk" %}
+                            <i class="fas fa-robot theme-icon"></i>
+                            {% elif theme.id == "openmanus" %}
+                            <i class="fas fa-desktop theme-icon"></i>
+                            {% else %}
+                            <i class="fas fa-palette theme-icon"></i>
+                            {% endif %}
+                        </div>
+                        <span class="theme-name">{{ theme.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <a href="/chat?theme=openmanus" class="cta-button">START <span class="arrow-icon">→</span></a>
+        </div>
+    </div>
+    <script>
+        // 防止iOS上的回弹效果
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+    </script>
+    <script src="/static/main.js"></script>
+</body>
+</html>
