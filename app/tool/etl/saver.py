@@ -6,8 +6,8 @@ from ..base import BaseTool
 class DataSaver(BaseTool):
     """智能数据存储工具｜支持多格式输出"""
 
-    name = "etl_saver"
-    parameters = {
+    name: str = "etl_saver"
+    parameters: dict = {
         "type": "object",
         "properties": {
             "output_format": {

@@ -6,8 +6,8 @@ from ..base import BaseTool
 class DataLoader(BaseTool):
     """智能数据加载器｜支持文件/数据库/API"""
 
-    name = "etl_loader"
-    parameters = {
+    name: str = "etl_loader"
+    parameters: dict = {
         "type": "object",
         "properties": {
             "source_type": {

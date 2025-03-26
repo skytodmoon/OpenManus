@@ -8,8 +8,8 @@ from ..base import BaseTool
 class DataCleaner(BaseTool):
     """智能数据清洗器｜支持多种清洗策略"""
 
-    name = "etl_cleaner"
-    parameters = {
+    name: str = "etl_cleaner"
+    parameters: dict = {
         "type": "object",
         "properties": {
             "missing_strategy": {

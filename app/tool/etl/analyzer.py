@@ -7,8 +7,8 @@ from ..base import BaseTool
 class DataAnalyzer(BaseTool):
     """多维数据分析器｜生成深度分析报告"""
 
-    name = "etl_analyzer"
-    parameters = {
+    name: str = "etl_analyzer"
+    parameters: dict = {
         "type": "object",
         "properties": {
             "analysis_level": {

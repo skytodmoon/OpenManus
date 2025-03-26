@@ -5,6 +5,7 @@ from .etl.cleaner import DataCleaner
 from .etl.analyzer import DataAnalyzer
 from .etl.saver import DataSaver
 from ..logger import logger
+from pathlib import Path
 
 
 class ETLTool(BaseTool):
@@ -52,7 +53,7 @@ class ETLTool(BaseTool):
         wait=wait_exponential(multiplier=1, min=2, max=10),
         before=lambda _: logger.info("ETL流程重试中...")
     )
-    async def execute(self, data_path: str, clean_config: dict = None, explore_depth: int = 2) -> Dict:
+    async def execute(self, data_path: str, clean_config: dict = None, explore_depth: int = 2) -> dict:
         """
         执行完整ETL流程
         Args:
@@ -126,7 +127,7 @@ class ETLTool(BaseTool):
         """根据输入路径推断输出格式"""
         return Path(input_path).suffix.lstrip('.').lower() or 'csv'
 
-    async def _safe_execute(self, tool: BaseTool, *args) -> Any:
+    async def _safe_execute(self, tool: BaseTool, *args) -> any:
         """带错误处理的工具执行方法"""
         try:
             return await tool.execute(*args)
