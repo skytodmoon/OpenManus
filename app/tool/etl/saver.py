@@ -4,25 +4,27 @@ from sqlalchemy import create_engine
 from ..base import BaseTool
 
 class DataSaver(BaseTool):
-    """智能数据存储工具｜支持多格式输出"""
+    """智能数据存储器｜多格式输出支持"""
 
     name: str = "etl_saver"
+    description: str = "将处理后的数据保存至本地文件或数据库"
     parameters: dict = {
         "type": "object",
         "properties": {
             "output_format": {
                 "type": "string",
                 "enum": ["csv", "parquet", "database"],
+                "description": "输出格式选择（csv/parquet/数据库）",
                 "default": "csv"
             },
-            "db_config": {
-                "type": "object",
-                "properties": {
-                    "conn_str": {"type": "string"},
-                    "table_name": {"type": "string"}
-                }
+            "compression": {
+                "type": "string",
+                "enum": ["none", "gzip", "snappy"],
+                "description": "文件压缩格式（仅parquet有效）",
+                "default": "none"
             }
-        }
+        },
+        "required": []
     }
 
     async def execute(self, df: pd.DataFrame, config: dict) -> str:
@@ -50,7 +52,9 @@ class DataSaver(BaseTool):
         df.to_parquet(path)
         return str(path)
 
-    def _save_database(self, df: pd.DataFrame, config: dict) -> str:
-        engine = create_engine(config["conn_str"])
-        df.to_sql(config["table_name"], engine, if_exists="append", index=False)
+    async def _save_database(self, df: pd.DataFrame, config: dict) -> str:
+        async with self.engine.begin() as conn:  # 添加事务支持
+            await conn.run_sync(lambda sync_conn:
+                df.to_sql(config["table_name"], engine, if_exists="append", index=False)
+            )
         return f"{config['table_name']} in database"

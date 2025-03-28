@@ -1,4 +1,5 @@
-pydantic~=2.10.6
+pydantic>=2.10.6,<3.0.0
+pydantic-core>=2.14.6
 openai~=1.66.3
 tenacity~=9.0.0
 pyyaml~=6.0.2
@@ -53,3 +54,8 @@ openpyxl
 xlrd
 pymysql
 psycopg2-binary
+pytest
+pytest-asyncio
+jinja2
+plotly
+pytest-cov

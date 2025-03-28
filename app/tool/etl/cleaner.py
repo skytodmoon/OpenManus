@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import pandas as pd
 
 import numpy as np
@@ -9,25 +11,42 @@ class DataCleaner(BaseTool):
     """智能数据清洗器｜支持多种清洗策略"""
 
     name: str = "etl_cleaner"
+    description: str = "执行自动化数据清洗流程，处理缺失值和异常值"
     parameters: dict = {
         "type": "object",
         "properties": {
             "missing_strategy": {
                 "type": "string",
                 "enum": ["drop", "simple_fill", "model_fill"],
+                "description": "缺失值处理策略（丢弃/简单填充/模型填充）",
                 "default": "drop"
             },
-            "outlier_strategy": {
-                "type": "string",
-                "enum": ["zscore", "iqr", "auto"],
-                "default": "iqr"
+            "outlier_sensitivity": {
+                "type": "number",
+                "minimum": 1.0,
+                "maximum": 3.0,
+                "description": "异常值检测敏感度（1.0-宽松 3.0-严格）",
+                "default": 2.0
             }
-        }
+        },
+        "required": []
     }
 
+    # 增加并行处理和类型推断优化
     async def execute(self, df: pd.DataFrame, config: dict) -> pd.DataFrame:
-        df = self.handle_missing(df, config)
-        return self.handle_outliers(df, config)
+        # 自动推断最佳数据类型
+        df = self._optimize_dtypes(df)
+
+        # 并行处理列
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            if "handle_missing" in config:
+                futures.append(executor.submit(self.handle_missing, df.copy(), config))
+            if "outlier_method" in config:
+                futures.append(executor.submit(self.handle_outliers, df.copy(), config))
+
+            results = [f.result() for f in futures]
+            return pd.concat(results, axis=1) if results else df
 
     def handle_missing(self, df: pd.DataFrame, config: dict) -> pd.DataFrame:
         strategy = config.get("missing_strategy", "drop")
