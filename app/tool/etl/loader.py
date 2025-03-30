@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+
+import aiohttp
 import pandas as pd
 from sqlalchemy import create_engine
 from ..base import BaseTool
@@ -26,12 +29,21 @@ class DataLoader(BaseTool):
     }
 
     async def execute(self, config: dict) -> pd.DataFrame:
-        if config["source_type"] == "file":
-            return self._load_file(config["path"])
-        elif config["source_type"] == "database":
-            return self._load_database(config["db_config"])
-        elif config["source_type"] == "api":
-            return await self._load_api(config["api_config"])  # 新增异步API加载
+        """执行数据加载"""
+        path = config["path"]
+        source_type = config.get("source_type", "file")
+
+        try:
+            if source_type in ["file", "csv"]:  # 同时支持file和csv类型
+                return await self._load_file(path)
+            elif source_type == "excel":
+                return await self._load_excel(path)
+            else:
+                raise ValueError(f"Unsupported source type: {source_type}")
+        except FileNotFoundError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"Failed to load data: {str(e)}")
 
     async def _load_api(self, config: dict) -> pd.DataFrame:
         """带限流和重试的API加载"""
@@ -44,6 +56,9 @@ class DataLoader(BaseTool):
     # 建议增加分块加载和内存优化
     async def _load_file(self, path: str) -> pd.DataFrame:
         file_path = Path(path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
         suffix = file_path.suffix.lower()
 
         # 增加分块加载支持

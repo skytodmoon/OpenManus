@@ -1,24 +1,190 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ETL分析报告 - {{ data_source }}</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <meta charset="UTF-8">
+    <title>ETL分析报告</title>
+    <!-- 添加Plotly CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+    .chart-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* 降低最小宽度 */
+        gap: 1rem;
+        margin: 1.5rem 0;
+        align-items: start; /* 顶部对齐 */
+    }
+
+    .chart-item {
+        background: white;
+        padding: 0.5rem;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        min-height: 320px; /* 统一最小高度 */
+        overflow: hidden; /* 防止内容溢出 */
+    }
+
+    .chart-item .plotly {
+        height: 100% !important; /* 强制图表高度填充 */
+        min-height: 300px;
+    }
+            /* 新增统计卡片样式 */
+    .stats-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.2rem;
+        margin: 1rem 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin: 1rem 0;
+    }
+
+    .data-section ul {
+        columns: 4;  /* 增加列数 */
+        column-gap: 1.5rem;
+        font-size: 0.9em;
+        max-height: 180px;
+    }
+
+    .compact-table {
+        width: 100%;
+        font-size: 0.9em;
+        border-collapse: collapse;
+        margin-top: 0.5rem;
+    }
+
+    .compact-table td, .compact-table th {
+        padding: 6px 8px;
+        border: 1px solid #dee2e6;
+    }
+
+    .compact-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+    </style>
 </head>
 <body>
     <h1>数据源: {{ data_source }}</h1>
 
-    <!-- 基础统计 -->
-    <section>
-        <h2>基础统计</h2>
-        <p>数据维度: {{ report.basic.data_shape[0] }} 行 × {{ report.basic.data_shape[1] }} 列</p>
-        <div>{{ visuals|safe }}</div>
-    </section>
+<!-- 修改基础统计部分 -->
+<section class="stats-grid">
+    <!-- 数据维度卡片 -->
+    <div class="stats-card">
+        <h3>数据概况</h3>
+        {% if report.basic.data_shape %}
+        <p>行数: {{ report.basic.data_shape[0] }}</p>
+        <p>列数: {{ report.basic.data_shape[1] }}</p>
+        {% endif %}
+    </div>
 
+    <!-- 数据列卡片 -->
+    {% if report.basic.columns %}
+    <div class="stats-card data-section">
+        <h3>数据列 ({{ report.basic.columns|length }})</h3>
+        <ul class="column-list">
+            {% for col in report.basic.columns %}
+            <li>{{ col }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- 缺失值卡片 -->
+    {% if report.basic.missing_values %}
+    <div class="stats-card">
+        <h3>缺失值统计</h3>
+        <table class="compact-table">
+            <tr><th>字段</th><th>缺失数</th><th>占比</th></tr>
+            {% for col, count in report.basic.missing_values.items() %}
+            <tr>
+                <td>{{ col }}</td>
+                <td>{{ count }}</td>
+                <td>{{ (count / report.basic.data_shape[0] * 100)|round(1) }}%</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endif %}
+</section>
+    <!-- 在基础统计部分添加 -->
+    {% if visuals %}
+    <!-- 修改基础图表部分 -->
+    <section class="basic-charts">
+        <h2>字段分布可视化</h2>
+        <div class="chart-grid">
+            {% for key in visuals if '_dist' in key %}
+            <div class="chart-item">
+                <div class="chart-pair">
+                    {{ visuals[key]|safe }}
+                    {{ visuals[key|replace('_dist', '_box')]|safe }}
+                </div>
+            </div>
+            <div class="chart-item">
+                {{ visuals[chart] | safe }}
+            </div>
+            {% endfor %}
+            <div>
+                {% if llm_analysis is defined %}
+                    {% for chart in visuals %}
+                        {% if llm_analysis.get(chart) %}
+                        <div class="analysis-card">
+                            <h4>智能分析</h4>
+                            <p>{{ llm_analysis[chart] }}</p>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
     <!-- 高级分析 -->
     {% if report.advanced %}
+    <!-- 在高级分析区块添加统计图表 -->
     <section>
         <h2>高级分析</h2>
         <div id="correlation_heatmap">{{ visuals.correlation_heatmap|safe }}</div>
+
+        <!-- 新增统计指标区块 -->
+        {% if visuals.statistics_table or visuals.skewness_kurtosis %}
+
+        <div class="statistics-section">
+            <h3>分布形态统计</h3>
+            <div class="chart-container">
+                {{ visuals.statistics_table|safe }}
+            </div>
+            <div class="chart-container">
+                {{ visuals.skewness_kurtosis|safe }}
+            </div>
+        </div>
+        {% endif %}
+        <!-- 在高级分析后添加分类数据 -->
+        {% if report.advanced.categorical %}
+        <section class="categorical-section">
+            <h2>分类字段分析</h2>
+            {% for col in report.advanced.categorical %}
+            <div class="chart-container">
+                {{ visuals.get(col + '_value_counts', '')|safe }}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <!-- 在高级分析中添加时间序列 -->
+        {% if report.advanced.temporal %}
+        <section class="temporal-section">
+            <h2>时间趋势分析</h2>
+            {% for col in report.advanced.temporal %}
+            <div class="chart-container">
+                {{ visuals.get(col + '_trend', '')|safe }}
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
     </section>
     {% endif %}
 
@@ -29,5 +195,18 @@
         <div id="feature_importance">{{ visuals.feature_importance|safe }}</div>
     </section>
     {% endif %}
+    <div>
+        {% if llm_analysis is defined %}
+            {% if llm_analysis.summary %}
+            <section class="summary-section">
+                <h3>综合分析总结</h3>
+                <div class="summary-content">
+                    {{ llm_analysis.summary }}
+                </div>
+            </section>
+            {% endif %}
+        {% endif %}
+    </div>
 </body>
 </html>
+

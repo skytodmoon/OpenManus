@@ -19,7 +19,7 @@ class DataAnalyzer(BaseTool):
     parameters: dict = {
         "type": "object",
         "properties": {
-            "analysis_level": {
+            "explore_depth": {
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 3,
@@ -31,49 +31,31 @@ class DataAnalyzer(BaseTool):
     }
 
     async def execute(self, df: pd.DataFrame, config: dict) -> dict:
-        report = {"basic": self.basic_analysis(df)}
+        depth = config.get("explore_depth", 1)
 
-        if config.get("analysis_level", 2) >= 2:
-            report["advanced"] = self.advanced_analysis(df)
+        # 根据探索深度分层执行
+        return {
+            "basic": self.basic_analysis(df) if depth >= 1 else {},
+            "advanced": self.advanced_analysis(df) if depth >= 2 else {},
+            "predictive": self.predictive_analysis(df, config) if depth >=3 else {}
+        }
 
-        if config.get("analysis_level", 2) >= 3:
-            report["predictive"] = self.predictive_analysis(df)
-
-        return report
-
-    @lru_cache(maxsize=128)
+    # 移除@lru_cache装饰器
     def basic_analysis(self, df: pd.DataFrame) -> dict:
-        """带缓存的基础分析
-        参数:
-            df: 输入数据框，将根据其内存地址进行缓存
-        返回:
-            包含基础统计信息的字典
-        """
-        # 生成数据指纹用于缓存键
-        data_fingerprint = (
-            df.shape,
-            tuple(df.columns),
-            tuple(df.dtypes.astype(str))
-        )
-
-        # 实际计算逻辑
+        logger.info("开始基础分析......")
+        """基础数据分析"""
         return {
             "data_shape": df.shape,
             "dtypes": df.dtypes.astype(str).to_dict(),
-            "missing_values": df.isna().sum().to_dict(),
-            "unique_counts": df.nunique().to_dict(),
-            "_cache_key": hash(data_fingerprint)  # 调试用缓存键
+            "stats": df.describe().to_dict(),
+            "missing_values": df.isna().sum().to_dict()
         }
 
-    # 2. 增量分析支持（代码中有注释但未实现）
-    async def execute(self, df: pd.DataFrame, config: dict) -> dict:
-        if "last_report" in config:
-            return self._incremental_analysis(df, config["last_report"])
 
     def advanced_analysis(self, df: pd.DataFrame) -> dict:
+        logger.info("开始高级分析......")
         numeric_df = df.select_dtypes(include=np.number)
 
-        # 修复1：添加缺失的分类统计代码
         categorical_stats = {
             col: {
                 "value_counts": df[col].value_counts().to_dict(),
@@ -81,16 +63,28 @@ class DataAnalyzer(BaseTool):
             } for col in df.select_dtypes(exclude=np.number).columns
         }
 
-        # 修复2：添加时间序列分析结果
         time_analysis = self._temporal_analysis(df)
-
+        # 新增聚类分析
+        from sklearn.cluster import KMeans
+        numeric_df = df.select_dtypes(include=np.number)
+        kmeans = KMeans(n_clusters=3).fit(numeric_df)
+        # 统一数据结构版本
         return {
-            "correlation_matrix": numeric_df.corr().to_dict(),
-            "skewness": numeric_df.skew().to_dict(),
-            "kurtosis": numeric_df.kurtosis().to_dict(),
-            "categorical_stats": categorical_stats,
-            "temporal_analysis": time_analysis
-        }  # 结束advanced_analysis方法
+            "correlation": {
+                "matrix": numeric_df.corr().to_dict(),
+                "plot_data": numeric_df.corr().values.tolist()
+            },
+            "statistics": {
+                "skewness": numeric_df.skew().to_dict(),
+                "kurtosis": numeric_df.kurtosis().to_dict()
+            },
+            "categorical": categorical_stats,  # 新增分类数据统计
+            "temporal": time_analysis,  # 新增时间序列分析
+            "clusters": {
+                "labels": kmeans.labels_.tolist(),
+                "centers": kmeans.cluster_centers_.tolist()
+        }
+        }
 
     # 将方法移动到类的主体层级
     def _detect_target(self, df: pd.DataFrame) -> str:
@@ -123,15 +117,24 @@ class DataAnalyzer(BaseTool):
             } for col in time_cols
         }
 
-    def predictive_analysis(self, df: pd.DataFrame) -> dict:
+    def predictive_analysis(self, df: pd.DataFrame, config: dict) -> dict:
+        logger.info("开始预测分析......")
         try:
+            # 保持原有逻辑
+            algorithm = config.get("algorithm", "xgboost")
             # 过滤非数值列（包括时间戳）
             numeric_df = df.select_dtypes(include=[np.number])
             if numeric_df.empty:
+                logger.warning("数值型列为空，无法进行预测分析")  # 添加日志
                 return {"error": "无可用数值型列进行建模"}
 
             # 只使用数值列进行分析
             target = self._detect_target(numeric_df)
+
+            if target not in numeric_df.columns:
+                logger.error(f"目标列{target}不存在于数值型列")
+                return {"error": f"目标列{target}无效"}
+
             X = numeric_df.drop(columns=[target])
             y = df[target]
 
