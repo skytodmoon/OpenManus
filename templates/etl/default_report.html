@@ -1,18 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ETL分析报告 - {{ data_source }}</title>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <meta charset="UTF-8">
+    <title>ETL分析报告</title>
+    <!-- 添加Plotly CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; }
+        .section { margin-bottom: 2rem; border-bottom: 1px solid #eee; padding-bottom: 1rem; }
+        .chart { margin: 1rem 0; }
+    </style>
 </head>
 <body>
     <h1>数据源: {{ data_source }}</h1>
 
     <!-- 基础统计 -->
-    <section>
-        <h2>基础统计</h2>
-        <p>数据维度: {{ report.basic.data_shape[0] }} 行 × {{ report.basic.data_shape[1] }} 列</p>
-        <div>{{ visuals|safe }}</div>
-    </section>
+    <!-- 错误渲染方式导致图表重复 -->
+<!-- 基础统计 -->
+<section>
+    <h2>基础统计</h2>
+    {% if report.basic and report.basic.data_shape %}
+    <p>数据维度: {{ report.basic.data_shape[0] }} 行 × {{ report.basic.data_shape[1] }} 列</p>
+    {% endif %}
+
+    {% if visuals %}
+    <div>
+        {% for name, html in visuals.items() if name.endswith('_dist') %}
+            {{ html|safe }}
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
 
     <!-- 高级分析 -->
     {% if report.advanced %}

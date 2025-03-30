@@ -19,7 +19,7 @@ class DataAnalyzer(BaseTool):
     parameters: dict = {
         "type": "object",
         "properties": {
-            "analysis_level": {
+            "explore_depth": {
                 "type": "integer",
                 "minimum": 1,
                 "maximum": 3,
@@ -31,47 +31,37 @@ class DataAnalyzer(BaseTool):
     }
 
     async def execute(self, df: pd.DataFrame, config: dict) -> dict:
-        report = {"basic": self.basic_analysis(df)}
+        report = {
+            "basic": self.basic_analysis(df),  # 包含data_shape
+            "advanced": self.advanced_analysis(df) if config.get("explore_depth", 2) >= 2 else None,
+            "predictive": self.predictive_analysis(df) if config.get("explore_depth", 2) >= 3 else None
+        }
+        return {k: v for k, v in report.items() if v is not None}  # 过滤空结果
 
-        if config.get("analysis_level", 2) >= 2:
-            report["advanced"] = self.advanced_analysis(df)
-
-        if config.get("analysis_level", 2) >= 3:
-            report["predictive"] = self.predictive_analysis(df)
-
-        return report
-
-    @lru_cache(maxsize=128)
+    # 移除@lru_cache装饰器
     def basic_analysis(self, df: pd.DataFrame) -> dict:
-        """带缓存的基础分析
-        参数:
-            df: 输入数据框，将根据其内存地址进行缓存
-        返回:
-            包含基础统计信息的字典
-        """
-        # 生成数据指纹用于缓存键
-        data_fingerprint = (
-            df.shape,
-            tuple(df.columns),
-            tuple(df.dtypes.astype(str))
-        )
-
-        # 实际计算逻辑
+        """基础数据分析"""
         return {
             "data_shape": df.shape,
             "dtypes": df.dtypes.astype(str).to_dict(),
-            "missing_values": df.isna().sum().to_dict(),
-            "unique_counts": df.nunique().to_dict(),
-            "_cache_key": hash(data_fingerprint)  # 调试用缓存键
+            "stats": df.describe().to_dict(),
+            "missing_values": df.isna().sum().to_dict()
         }
 
-    # 2. 增量分析支持（代码中有注释但未实现）
-    async def execute(self, df: pd.DataFrame, config: dict) -> dict:
-        if "last_report" in config:
-            return self._incremental_analysis(df, config["last_report"])
 
     def advanced_analysis(self, df: pd.DataFrame) -> dict:
         numeric_df = df.select_dtypes(include=np.number)
+
+        return {
+            "correlation": {  # 修改键名与可视化方法一致
+                "matrix": numeric_df.corr().to_dict(),
+                "plot_data": numeric_df.corr().values.tolist()  # 新增供可视化使用的数据
+            },
+            "statistics": {
+                "skewness": numeric_df.skew().to_dict(),
+                "kurtosis": numeric_df.kurtosis().to_dict()
+            }
+        }
 
         # 修复1：添加缺失的分类统计代码
         categorical_stats = {

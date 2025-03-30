@@ -33,26 +33,25 @@ class DataCleaner(BaseTool):
     }
 
     # 增加并行处理和类型推断优化
-    async def execute(self, df: pd.DataFrame, config: dict) -> pd.DataFrame:
-        # 自动推断最佳数据类型
-        df = self._optimize_dtypes(df)
+    async def execute(self, df: pd.DataFrame, config: dict = None) -> pd.DataFrame:
+        # 先处理列重复问题
+        df = df.loc[:, ~df.columns.duplicated()]
 
-        # 并行处理列
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            if "handle_missing" in config:
-                futures.append(executor.submit(self.handle_missing, df.copy(), config))
-            if "outlier_method" in config:
-                futures.append(executor.submit(self.handle_outliers, df.copy(), config))
+        # 改为串行处理确保顺序
+        if config:
+            df = self.handle_missing(df, config)
+            df = self.handle_outliers(df, config)
 
-            results = [f.result() for f in futures]
-            return pd.concat(results, axis=1) if results else df
+        return df
+
 
     def handle_missing(self, df: pd.DataFrame, config: dict) -> pd.DataFrame:
-        strategy = config.get("missing_strategy", "drop")
+        strategy = config.get("handle_missing", "drop")
 
         if strategy == "drop":
-            return df.dropna()
+            # 确保检查所有列（包括处理后的列）
+            cols_to_check = [c for c in df.columns if not c.endswith('.1')]  # 排除重复列
+            return df.dropna(how='any', subset=cols_to_check)
         elif strategy == "simple_fill":
             return self._simple_imputation(df)
         elif strategy == "model_fill":
@@ -93,3 +92,23 @@ class DataCleaner(BaseTool):
         q3 = df[col].quantile(0.75)
         iqr = q3 - q1
         return df[(df[col] >= q1 - 1.5*iqr) & (df[col] <= q3 + 1.5*iqr)]
+
+    def _optimize_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """优化DataFrame的数据类型以减少内存使用"""
+        if df.empty:
+            return df
+
+        # 转换数值类型
+        for col in df.select_dtypes(include=['int64']).columns:
+            df[col] = pd.to_numeric(df[col], downcast='integer')
+
+        # 转换浮点类型
+        for col in df.select_dtypes(include=['float64']).columns:
+            df[col] = pd.to_numeric(df[col], downcast='float')
+
+        # 转换字符串类型
+        for col in df.select_dtypes(include=['object']).columns:
+            if df[col].nunique() / len(df[col]) < 0.5:
+                df[col] = df[col].astype('category')
+
+        return df  # 只需返回优化后的DataFrame
