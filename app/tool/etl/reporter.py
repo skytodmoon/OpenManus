@@ -122,9 +122,6 @@ class ReportGenerator(BaseTool):
                 except Exception as e:
                     logger.error(f"LLM分析失败: {str(e)}")
                     full_report["llm_analysis"] = {"error": "智能分析失败"}
-            # 在模板渲染前添加安全处理
-            # safe_analysis = await self._safe_llm_analysis(full_report)
-            # full_report["llm_analysis"] = safe_analysis
 
             html_content = template.render(
                 report=full_report,
@@ -487,12 +484,17 @@ class ReportGenerator(BaseTool):
             return "统计信息提取异常"
 
     def _generate_llm_summary(self, analysis: dict) -> str:
-        """生成综合分析总结"""
-        summary_parts = []
+        """生成结构化综合分析总结"""
+        if not analysis or "error" in analysis:
+            return "暂无综合分析内容"
+
+        summary = ["<h4>关键发现</h4><ul>"]
         for chart_id, text in analysis.items():
             if chart_id != "error":
-                summary_parts.append(f"【{chart_id}】{text[:100]}...")
-        return "\n".join(summary_parts) or "暂无综合分析内容"
+                summary.append(f"<li><b>{chart_id.split('_')[0]}</b>: {text[:120]}...</li>")
+        summary.append("</ul>")
+
+        return "".join(summary)
 
     async def _add_llm_analysis(self, visuals: dict, report: dict) -> dict:
         """使用大模型分析可视化图表"""
@@ -504,7 +506,6 @@ class ReportGenerator(BaseTool):
                 return analysis
 
             logger.info(f"开始LLM分析，共{len(visuals)}个图表需要处理")
-
             for chart_id in visuals:
                 logger.info(f"开始分析图表: {chart_id}")
 
@@ -519,25 +520,29 @@ class ReportGenerator(BaseTool):
 
                 # 构建结构化提示词
                 prompt = f"""基于以下数据特征生成专业分析报告：
-                
-        **图表元数据**
-        - 标题：{chart_meta['title']}
-        - 类型：{chart_meta['chart_type']}
-        - 关联字段：{chart_meta['column']}
-        - 数据维度：{chart_meta['data_shape'][0]}行×{chart_meta['data_shape'][1]}列
+                    
+            **图表元数据**
+            - 标题：{chart_meta['title']}
+            - 类型：{chart_meta['chart_type']}
+            - 关联字段：{chart_meta['column']}
+            - 数据维度：{chart_meta['data_shape'][0]}行×{chart_meta['data_shape'][1]}列
+        
+            **核心统计**
+            {chart_meta['key_stats']}
+        
+            **分析要求**
+            1. 趋势分析（100字内）：描述数据分布的主要模式
+            2. 异常检测（80字内）：指出潜在异常点及判断依据
+            3. 业务建议（120字内）：提出可落地的改进措施
+            4. 风险预警（60字内）：对于后续进一步分析的思路和指导
     
-        **核心统计**
-        {chart_meta['key_stats']}
-    
-        **分析要求**
-        1. 趋势分析（100字内）：描述数据分布的主要模式
-        2. 异常检测（80字内）：指出3个潜在异常点及判断依据
-        3. 业务建议（120字内）：提出可落地的改进措施
-        4. 风险预警（60字内）：识别可能的数据质量问题"""
+            请直接输出最终分析结果，不要包含思考过程或推理步骤。"""
 
                 try:
                     agent = CoTAgent()
-                    analysis[chart_id] = await agent.run(prompt)
+                    # 新增结果处理逻辑，确保只返回格式化内容
+                    raw_result = await agent.run(prompt)
+                    analysis[chart_id] = self._format_llm_output(raw_result)
                 except Exception as e:
                     logger.warning(f"图表分析异常: {str(e)}")
                     continue
@@ -565,3 +570,28 @@ class ReportGenerator(BaseTool):
         if 'box' in chart_id: return '箱线图'
         if 'dist' in chart_id: return '分布直方图'
         return '通用分析图'
+
+    def _format_llm_output(self, raw_output: str) -> str:
+        """优化后的LLM输出格式化方法，稳定提取Answer部分"""
+        # 尝试提取Answer标记后的内容
+        answer_start = raw_output.find("Answer:")
+        if answer_start != -1:
+            # 提取Answer:之后的所有内容
+            answer_content = raw_output[answer_start + len("Answer:"):].strip()
+            # 去除可能的多余标记和空白
+            return answer_content.split("Terminated:")[0].strip()
+
+        # 如果没有Answer标记，尝试提取四个标准部分
+        sections = ["趋势分析", "异常检测", "业务建议", "风险预警"]
+        result = []
+
+        for section in sections:
+            start_idx = raw_output.find(f"**{section}**")
+            if start_idx != -1:
+                end_idx = raw_output.find("**", start_idx + len(section) + 4)
+                content = raw_output[start_idx:end_idx if end_idx != -1 else None].strip()
+                # 去除重复的章节标题
+                clean_content = content.replace(f"**{section}**", "").strip()
+                result.append(f"**{section}**：{clean_content}")
+
+        return "\n\n".join(result) if result else raw_output

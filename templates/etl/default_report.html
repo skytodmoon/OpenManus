@@ -65,6 +65,68 @@
     .compact-table tr:nth-child(even) {
         background-color: #f8f9fa;
     }
+            /* 新增LLM分析样式 */
+    .llm-analysis-section {
+        margin: 2rem 0;
+        padding: 1.5rem;
+        background: #f8fafc;
+        border-radius: 8px;
+    }
+
+    .analysis-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 1.5rem;
+        margin: 1.5rem 0;
+    }
+
+    .analysis-card {
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        padding: 1.25rem;
+        border-left: 3px solid #3b82f6;
+    }
+
+    .analysis-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .analysis-type {
+        font-size: 0.85em;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+
+    .analysis-content {
+        font-size: 0.95em;
+        line-height: 1.7;
+        color: #374151;
+    }
+
+    .summary-card {
+        background: #f0f9ff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        border-left: 4px solid #1d4ed8;
+    }
+
+    .summary-content {
+        background: white;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+        font-size: 0.95em;
+        line-height: 1.7;
+    }
     </style>
 </head>
 <body>
@@ -127,18 +189,6 @@
                 {{ visuals[chart] | safe }}
             </div>
             {% endfor %}
-            <div>
-                {% if llm_analysis is defined %}
-                    {% for chart in visuals %}
-                        {% if llm_analysis.get(chart) %}
-                        <div class="analysis-card">
-                            <h4>智能分析</h4>
-                            <p>{{ llm_analysis[chart] }}</p>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
-            </div>
         </div>
     </section>
     {% endif %}
@@ -195,18 +245,46 @@
         <div id="feature_importance">{{ visuals.feature_importance|safe }}</div>
     </section>
     {% endif %}
-    <div>
-        {% if llm_analysis is defined %}
-            {% if llm_analysis.summary %}
-            <section class="summary-section">
-                <h3>综合分析总结</h3>
-                <div class="summary-content">
-                    {{ llm_analysis.summary }}
+{% if llm_analysis is defined and llm_analysis %}
+<section class="llm-analysis-section">
+    <h2>智能分析</h2>
+
+    <div class="analysis-container">
+        {% for chart_id, analysis in llm_analysis.items() %}
+            {% if chart_id != "error" %}
+            <div class="analysis-card">
+                <div class="analysis-header">
+                    <h3>{{ chart_id.split('_')[0] }}字段分析</h3>
+                    <span class="analysis-type">
+                        {% if chart_id.endswith('_dist') %}
+                            Distribution
+                        {% elif chart_id.endswith('_box') %}
+                            Boxplot
+                        {% elif chart_id.endswith('_corr') %}
+                            Correlation
+                        {% else %}
+                            Analysis
+                        {% endif %}
+                    </span>
                 </div>
-            </section>
+                <div class="analysis-content">
+                    {{ analysis|replace('\n', '<br>')|safe }}
+                </div>
+            </div>
             {% endif %}
-        {% endif %}
+        {% endfor %}
     </div>
+
+    {% if llm_analysis.summary %}
+    <div class="summary-card">
+        <h3>综合分析总结</h3>
+        <div class="summary-content">
+            {{ llm_analysis.summary|safe }}
+        </div>
+    </div>
+    {% endif %}
+</section>
+{% endif %}
 </body>
 </html>
 
